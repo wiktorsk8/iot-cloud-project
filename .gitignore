@@ -1,0 +1,41 @@
+# ──────────────── Terraform ────────────────
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# pliki ze zmiennymi mogą zawierać IP/specyfikę — nie commitujemy
+*.tfvars
+!*.tfvars.example
+
+# UWAGA: .terraform.lock.hcl JEST commitowany (pin wersji providerów) — celowo nie ignorujemy
+
+# ──────────────── Go ────────────────
+# lokalnie zbudowana binarka (w kontenerze i tak budujemy od zera)
+app/app
+*.exe
+*.test
+*.out
+
+# UWAGA: go.mod i go.sum SĄ commitowane — celowo nie ignorujemy
+
+# ──────────────── Sekrety / poświadczenia ────────────────
+.env
+*.pem
+*.key
+*credentials*.json
+
+# ──────────────── System / edytor ────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/
