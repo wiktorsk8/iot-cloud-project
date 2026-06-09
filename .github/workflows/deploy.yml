@@ -36,7 +36,7 @@ jobs:
       - name: Build obrazu
         run: |
           IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
-          docker build -t "$IMAGE:${{ github.sha }}" -t "$IMAGE:latest" .
+          docker build -t "$IMAGE:${{ github.sha }}" -t "$IMAGE:latest" /app
 
       - name: Push do ACR (sha + latest -> wyzwala webhook CD)
         run: |
