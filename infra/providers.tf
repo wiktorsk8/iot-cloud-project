@@ -16,12 +16,12 @@ terraform {
   # Najpierw zbootstrapuj konto storage w osobnym RG (rg-tfstate),
   # potem odkomentuj poniższe i uruchom: terraform init -migrate-state
   #
-  # backend "azurerm" {
-  #   resource_group_name  = "rg-tfstate"
-  #   storage_account_name = "sttfstateXXXX"
-  #   container_name       = "tfstate"
-  #   key                  = "iot-projekt.tfstate"
-  # }
+  backend "azurerm" {
+    resource_group_name  = "rg-tfstate"
+    storage_account_name = "sttfstate21886"
+    container_name       = "tfstate"
+    key                  = "iot-projekt.tfstate"
+  }
 }
 
 provider "azurerm" {

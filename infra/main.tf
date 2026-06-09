@@ -13,7 +13,10 @@ resource "azurerm_container_registry" "acr" {
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
   sku                 = "Basic"
-  admin_enabled       = false
+  # admin_enabled = true tylko po to, by GitHub Actions mógł PUSHOWAĆ obraz.
+  # Pull do App Service nadal idzie wyłącznie przez Managed Identity (patrz niżej).
+  # Service Principal/OIDC byłyby czystsze, ale tenant uczelni blokuje rejestrację aplikacji w AD.
+  admin_enabled = true
 }
 
 # =====================================================================
@@ -88,17 +91,19 @@ resource "azurerm_linux_web_app" "app" {
   }
 
   site_config {
+    always_on = false # F1 Free nie wspiera Always On
+
     application_stack {
       docker_image_name   = "${var.image_name}:${var.image_tag}"
       docker_registry_url = "https://${azurerm_container_registry.acr.login_server}"
     }
-    # pobieraj obraz z ACR przez Managed Identity (bez loginu/hasła)
     container_registry_use_managed_identity = true
   }
 
   app_settings = {
-    "WEBSITES_PORT"    = var.container_port
-    "DOCKER_ENABLE_CI" = "true"
+    "WEBSITES_PORT"         = var.container_port
+    "PORT"                  = var.container_port
+    "DOCKER_ENABLE_CI"      = "true"
     "SQL_CONNECTION_STRING" = "Server=tcp:${azurerm_mssql_server.sql.fully_qualified_domain_name},1433;Database=${var.sql_db_name};User ID=${var.sql_admin_login};Password=${random_password.sql.result};Encrypt=true;TrustServerCertificate=False;Connection Timeout=30;"
   }
 }
@@ -107,4 +112,25 @@ resource "azurerm_role_assignment" "acr_pull" {
   scope                = azurerm_container_registry.acr.id
   role_definition_name = "AcrPull"
   principal_id         = azurerm_linux_web_app.app.identity[0].principal_id
+}
+
+# =====================================================================
+#  Continuous Deployment: webhook w ACR -> App Service
+#  Po każdym pushu obrazu z tagiem `latest` ACR "puka" do endpointu CD
+#  App Service (/docker/hook), a ta automatycznie pobiera nowy obraz
+#  (przez Managed Identity). Realizuje wymóg 4.0 (auto-update < 2 min).
+#
+#  service_uri zawiera publishing credentials Web Appki (site_credential) —
+#  to uwierzytelnienie samego webhooka wobec App Service, NIE creds do ACR.
+# =====================================================================
+resource "azurerm_container_registry_webhook" "cd" {
+  name                = "appservicecd"
+  registry_name       = azurerm_container_registry.acr.name
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+
+  service_uri = "https://${azurerm_linux_web_app.app.site_credential[0].name}:${azurerm_linux_web_app.app.site_credential[0].password}@${azurerm_linux_web_app.app.name}.scm.azurewebsites.net/docker/hook"
+  status      = "enabled"
+  scope       = "${var.image_name}:${var.image_tag}" # iot-app:latest
+  actions     = ["push"]
 }
