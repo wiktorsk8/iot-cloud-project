@@ -1,13 +1,22 @@
 name: Deployment
 
+# CD: po pushu na main budujemy obraz i wypychamy go do ACR.
+# Push tagu `latest` wyzwala webhook w ACR -> App Service sam pobiera
+# nowy obraz (przez Managed Identity). Brak `az login` (tenant blokuje SP),
+# więc do PUSHA używamy poświadczeń admina ACR trzymanych w GitHub Secrets.
+
 on:
   push:
     branches:
       - main
+    paths:
+      - "app/**"
+      - "Dockerfile"
+      - ".github/workflows/deploy.yml"
 
 env:
-  REGISTRY: ${{ secrets.ACR_LOGIN_SERVER }}
-  IMAGE_NAME: go-app
+  REGISTRY: ${{ secrets.ACR_LOGIN_SERVER }} # np. acriot12246.azurecr.io
+  IMAGE_NAME: iot-app                       # MUSI zgadzać się z var.image_name w Terraform
 
 jobs:
   build-and-push:
@@ -17,21 +26,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Login to ACR
+      - name: Login do ACR (admin user)
         uses: azure/docker-login@v2
         with:
           login-server: ${{ secrets.ACR_LOGIN_SERVER }}
           username: ${{ secrets.ACR_USERNAME }}
           password: ${{ secrets.ACR_PASSWORD }}
 
-      - name: Build Docker Image
+      - name: Build obrazu
         run: |
           IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
-          docker build -t $IMAGE:${{ github.sha }} .
-          docker tag $IMAGE:${{ github.sha }} $IMAGE:latest
+          docker build -t "$IMAGE:${{ github.sha }}" -t "$IMAGE:latest" .
 
-      - name: Wypychanie obrazu do ACR
+      - name: Push do ACR (sha + latest -> wyzwala webhook CD)
         run: |
           IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
-          docker push $IMAGE:${{ github.sha }}
-          docker push $IMAGE:latest 
+          docker push "$IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:latest"
