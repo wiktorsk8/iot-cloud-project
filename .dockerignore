@@ -1,0 +1,11 @@
+# Nie kopiujemy do kontekstu builda rzeczy zbędnych/wrażliwych
+.git
+.github
+infra
+docs
+*.md
+app/app
+*.tfstate
+*.tfstate.*
+.terraform
+.env
